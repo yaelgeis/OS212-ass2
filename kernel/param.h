@@ -11,3 +11,18 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
+
+//**** A2T2 ****//
+#define SIG_DFL 0 /* default signal handling */
+#define SIG_IGN 1 /* ignore signal */
+#define SIGKILL 9
+#define SIGSTOP 17
+#define SIGCONT 19
+//****end of A2T2 ****//
+
+//A2T3
+#define MAX_STACK_SIZE 4000
+
+//A2T4
+#define MAX_BSEM     128   // maximum number of binary semaphores
+

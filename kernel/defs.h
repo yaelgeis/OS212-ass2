@@ -8,6 +8,8 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct sigaction;   // A2T2.1
+struct thread;      // A2T3
 
 // bio.c
 void            binit(void);
@@ -89,7 +91,7 @@ int             growproc(int);
 void            proc_mapstacks(pagetable_t);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
-int             kill(int);
+int             kill(int, int);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
 struct proc*    myproc();
@@ -105,6 +107,39 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+// **** A2T2 ****//
+// section 1
+uint            sigprocmask (uint);
+int             sigaction (int, const uint64, uint64);
+void            sigret (void);
+
+// section 4
+void handle_signals(void);
+void sigret_start(void);
+void sigret_end(void);
+// **** end of A2T2 ****//
+
+// **** A2T3 ****//
+void            init_bsems(void);
+int             kthread_create (uint64, uint64);
+int             kthread_id(void);
+void            kthread_exit(int);
+int             kthread_join(int, uint64);
+struct thread*  mythread();
+// **** end of A2T3 ****//
+
+
+
+//**** A2T4****//
+// bsem.c
+void init_bsems(void);
+int  bsem_alloc (void);
+void bsem_free (int);
+void bsem_down (int);
+void bsem_up (int);
+//**** end of A2T4****//
+
+
 
 // swtch.S
 void            swtch(struct context*, struct context*);

@@ -20,7 +20,7 @@ struct context {
 
 // Per-CPU state.
 struct cpu {
-  struct proc *proc;          // The process running on this cpu, or null.
+  struct thread *thread;      // The thread running on this cpu, or null.
   struct context context;     // swtch() here to enter scheduler().
   int noff;                   // Depth of push_off() nesting.
   int intena;                 // Were interrupts enabled before push_off()?
@@ -48,7 +48,7 @@ struct trapframe {
   /*  24 */ uint64 epc;           // saved user program counter
   /*  32 */ uint64 kernel_hartid; // saved kernel tp
   /*  40 */ uint64 ra;
-  /*  48 */ uint64 sp;
+  /*  48 */ uint64 sp;            // user stack pointer
   /*  56 */ uint64 gp;
   /*  64 */ uint64 tp;
   /*  72 */ uint64 t0;
@@ -80,29 +80,83 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
-enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+
+enum procstate { UNUSED, USED, ZOMBIE };
+
+
+//**** A2T2 ****//
+struct sigaction{
+  void (*sa_handler)(int);
+  uint sigmask;
+};
+//****end of A2T2 ****//
+
+
+//**** A2T3 ****//
+#define NTHREAD 8
+
+enum threadstate { T_UNUSED, T_USED, T_SLEEPING, T_RUNNABLE, T_RUNNING, T_ZOMBIE };
+
+// Per-thread state
+struct thread {
+  struct spinlock lock;
+
+  // t->lock must be held when using these:
+  enum threadstate state;      // Thread state
+  int xstate;                  // Exit status to be returned to other thread's join
+  void *chan;                  // If non-zero, sleeping on chan
+  int killed;                  // If non-zero, have been killed
+  int tid;                     // Thread ID
+  int signal_handling;         // If non-zero, thread is handling signal
+
+  // these are private to the thread, so t->lock need not be held.
+  struct proc *parent; 
+
+  uint64 kstack;               // Virtual address of kernel stack
+  struct trapframe *trapframe; // data page for trampoline.S
+  struct trapframe* user_trapframe_backup;
+  struct trapframe* backup_address;
+
+  struct context context;      // swtch() here to run process
+
+
+
+};
+//**** end of A2T3 ****//
+
 
 // Per-process state
 struct proc {
   struct spinlock lock;
+  struct thread threads[NTHREAD];
 
   // p->lock must be held when using these:
   enum procstate state;        // Process state
-  void *chan;                  // If non-zero, sleeping on chan
-  int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
+  int killed;                  // If non-zero, have been killed
   int pid;                     // Process ID
 
   // proc_tree_lock must be held when using this:
   struct proc *parent;         // Parent process
 
   // these are private to the process, so p->lock need not be held.
-  uint64 kstack;               // Virtual address of kernel stack
-  uint64 sz;                   // Size of process memory (bytes)
   pagetable_t pagetable;       // User page table
-  struct trapframe *trapframe; // data page for trampoline.S
-  struct context context;      // swtch() here to run process
+  void* threads_trapframe;
+  // void* threads_trapframe_backup;
+  uint64 sz;                   // Size of process memory (bytes)
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  //**** A2T2 ****//
+  uint pending_signals;                     // a bit array of pending signals
+  uint signal_mask;                         // a bit array of signals to ignore
+  
+  void* signal_handlers[32];
+  uint handlers_sigmasks[32];               // sigaction->sigmask: signals to block while executing a certain handler
+  uint sigmask_backup;                      // backup current sigmask while executing an handler
+  int freeze;                              // A2T4: if non zero, the process has been stopped by SIGSTOP
+
+  //**** end of A2T2 ****//
+
 };

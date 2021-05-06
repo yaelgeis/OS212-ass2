@@ -19,8 +19,11 @@ exec(char *path, char **argv)
   struct inode *ip;
   struct proghdr ph;
   pagetable_t pagetable = 0, oldpagetable;
-  struct proc *p = myproc();
+  
 
+  struct proc *p = myproc();
+  struct thread *currthread = mythread();
+  
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -35,8 +38,9 @@ exec(char *path, char **argv)
   if(elf.magic != ELF_MAGIC)
     goto bad;
 
-  if((pagetable = proc_pagetable(p)) == 0)
+  if((pagetable = proc_pagetable(p)) == 0){
     goto bad;
+  }
 
   // Load program into memory.
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
@@ -57,11 +61,11 @@ exec(char *path, char **argv)
     if(loadseg(pagetable, ph.vaddr, ip, ph.off, ph.filesz) < 0)
       goto bad;
   }
+
   iunlockput(ip);
   end_op();
   ip = 0;
 
-  p = myproc();
   uint64 oldsz = p->sz;
 
   // Allocate two pages at the next page boundary.
@@ -74,6 +78,7 @@ exec(char *path, char **argv)
   uvmclear(pagetable, sz-2*PGSIZE);
   sp = sz;
   stackbase = sp - PGSIZE;
+
 
   // Push argument strings, prepare rest of stack in ustack.
   for(argc = 0; argv[argc]; argc++) {
@@ -89,6 +94,7 @@ exec(char *path, char **argv)
   }
   ustack[argc] = 0;
 
+
   // push the array of argv[] pointers.
   sp -= (argc+1) * sizeof(uint64);
   sp -= sp % 16;
@@ -100,7 +106,7 @@ exec(char *path, char **argv)
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
   // value, which goes in a0.
-  p->trapframe->a1 = sp;
+  currthread->trapframe->a1 = sp;
 
   // Save program name for debugging.
   for(last=s=path; *s; s++)
@@ -112,9 +118,18 @@ exec(char *path, char **argv)
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
-  p->trapframe->epc = elf.entry;  // initial program counter = main
-  p->trapframe->sp = sp; // initial stack pointer
+  currthread->trapframe->epc = elf.entry;   // initial program counter = main
+  currthread->trapframe->sp = sp;           // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
+
+  //*** A2T2.1 ****//
+  for (int i = 0; i<sizeof(p->signal_handlers)/sizeof(void*); i++){
+    if (p->signal_handlers[i] != (void*)SIG_IGN){
+      p->signal_handlers[i] = (void*)SIG_DFL;
+      p->handlers_sigmasks[i] = 0;
+    }
+  }
+  //*** end of A2T2.1 ****//
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
@@ -127,6 +142,7 @@ exec(char *path, char **argv)
   }
   return -1;
 }
+
 
 // Load a program segment into pagetable at virtual address va.
 // va must be page-aligned
@@ -152,6 +168,5 @@ loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset, uint sz
     if(readi(ip, 0, (uint64)pa, offset+i, n) != n)
       return -1;
   }
-  
   return 0;
 }

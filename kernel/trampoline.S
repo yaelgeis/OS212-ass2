@@ -8,7 +8,10 @@
 	# kernel.ld causes this to be aligned
         # to a page boundary.
         #
-	.section trampsec
+
+#include "syscall.h"
+
+.section trampsec
 .globl trampoline
 trampoline:
 .align 4
@@ -22,8 +25,7 @@ uservec:
         #
         # sscratch points to where the process's p->trapframe is
         # mapped into user space, at TRAPFRAME.
-        #
-        
+
 	# swap a0 and sscratch
         # so that a0 is TRAPFRAME
         csrrw a0, sscratch, a0
@@ -92,6 +94,7 @@ userret:
         # a0: TRAPFRAME, in user page table.
         # a1: user page table, for satp.
 
+        
         # switch to the user page table.
         csrw satp, a1
         sfence.vma zero, zero
@@ -139,3 +142,11 @@ userret:
         # return to user mode and user pc.
         # usertrapret() set up sstatus and sepc.
         sret
+
+.globl sigret_start
+.globl sigret_end
+sigret_start:
+  li a7, SYS_sigret
+  ecall
+  ret
+sigret_end:
