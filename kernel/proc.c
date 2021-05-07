@@ -1167,8 +1167,5 @@ kthread_join(int thread_id, uint64 status){
   freethread(t); 
   release(&t->lock);
   return 0;
-  
-  release(&t->lock);
-  return -1;
 }
 //**** end of A2T3 ****//
