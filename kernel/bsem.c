@@ -19,33 +19,32 @@ void init_bsems(){
 
 int
 bsem_alloc(){
-int d = 0;
-struct bsem *b;
-for (b = bsems; b < &bsems[MAX_BSEM]; b++){
-	if (b->state == B_UNUSED){
-		b->state = B_UNLOCKED;
-		return d;
+	int d = 0;
+	struct bsem *b;
+	for (b = bsems; b < &bsems[MAX_BSEM]; b++){
+		if (b->state == B_UNUSED){
+			b->state = B_UNLOCKED;
+			return d;
+		}
+		d++;
 	}
-	d++;
-}
-return -1;
+	return -1;
 }
 
 void
 bsem_free(int d){
-	if (d < 0 || d > MAX_BSEM)
+	if (d < 0 || d >= MAX_BSEM)
 		return;
 	struct bsem *b = &bsems[d];
-	if (b->state != B_UNUSED){
+	acquire(&b->lock);
+	if (b->state != B_UNUSED)
 		b->state = B_UNUSED;
-		if (holding(&b->lock))
-			release(&b->lock);
-	}
+	release(&b->lock);
 }
 
 void
 bsem_down(int d){
-	if (d < 0 || d > MAX_BSEM)
+	if (d < 0 || d >= MAX_BSEM)
 		return;
 	struct bsem *b = &bsems[d];
 	acquire(&b->lock);
@@ -62,7 +61,7 @@ bsem_down(int d){
 
 void
 bsem_up(int d){
-  if (d < 0 || d > MAX_BSEM)
+  if (d < 0 || d >= MAX_BSEM)
 		return;
 	struct bsem *b = &bsems[d];
 	acquire(&b->lock);

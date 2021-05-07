@@ -73,6 +73,8 @@ test_sigaction() {
 	siguser_action->sa_handler = handler;
 	siguser_action->sigmask = 25;
 
+	fprintf(2, "* note that user handler 1 should be printed out!\n");
+	
 	int xstate = 0;
 	pid = fork();
 	if (pid==0) {
@@ -331,17 +333,14 @@ int main(){
   }
 
   if(fail == 10){
-    printf("ALL TESTS FAILED\n");
+    printf("\nALL TESTS FAILED\n");
     exit(1);
 	}
 
 	if (fail > 0){
-    printf("%d TESTS FAILED\n", fail);
+    printf("\n%d TESTS FAILED\n", fail);
     exit(1);
 	}
-	
-	printf("ALL TESTS PASSED\n");
-  
+	printf("\nALL TESTS PASSED\n");
 	exit(0);
-
 }
