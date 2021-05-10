@@ -1138,10 +1138,11 @@ kthread_exit(int status){
 
 int
 kthread_join(int thread_id, uint64 status){
+ acquire(&wait_lock);
   struct proc* p = myproc();
   struct thread* currthread = mythread();
-
   struct thread* t;
+
   for (t = p->threads; t < &p->threads[NTHREAD]; t++) {
     if (t != currthread){
       acquire(&t->lock);
@@ -1152,20 +1153,35 @@ kthread_join(int thread_id, uint64 status){
     }
   }
   // hasn't found thread
+  release(&wait_lock);
   return -1; 
 
   //t is the thread we are waiting for, t->lock is still acquired
   found_tid:
-  while (t->state != T_ZOMBIE) 
-    sleep(t, &t->lock);
-  
-  // after the thread became zombie we clean it (the thread the we have been waiting for)
-  if(status != 0 && copyout(p->pagetable, status, (char *)&t->xstate, sizeof(t->xstate)) < 0) {
+  while(1){
+    if(t->state == T_ZOMBIE){
+      if(status != 0 && copyout(p->pagetable, status, (char *)&t->xstate, sizeof(t->xstate)) < 0) {
+        release(&t->lock);
+        release(&wait_lock);
+        return -1;
+      }
+      freethread(t); 
+      release(&t->lock);
+      release(&wait_lock);
+      return 0;
+    }
+    //in case the running thread has been killed in the meantime or the other thread has been collect already
+    if(currthread->killed || t->tid != thread_id || t->state == T_UNUSED){
+      release(&t->lock);
+      release(&wait_lock);
+      return -1;
+    }
+    if(t->killed && t->state == T_SLEEPING)
+      t->state = T_RUNNABLE;
+    
     release(&t->lock);
-    return -1;
+    sleep(t, &wait_lock);
+    acquire(&t->lock);
   }
-  freethread(t); 
-  release(&t->lock);
-  return 0;
 }
 //**** end of A2T3 ****//

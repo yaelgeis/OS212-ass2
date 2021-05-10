@@ -22,7 +22,6 @@ exec(char *path, char **argv)
   
 
   struct proc *p = myproc();
-  struct thread *currthread = mythread();
   
   begin_op();
 
@@ -102,6 +101,21 @@ exec(char *path, char **argv)
     goto bad;
   if(copyout(pagetable, sp, (char *)ustack, (argc+1)*sizeof(uint64)) < 0)
     goto bad;
+
+  struct thread* currthread = mythread();
+  struct thread* t;
+  for(t = p->threads; t < &p->threads[NTHREAD]; t++){
+    if (t != currthread){
+      acquire(&t->lock);
+      if (t->state != T_UNUSED && t->state != T_ZOMBIE){
+        t->killed = 1;
+        if (t->state == T_SLEEPING)
+          t->state = T_RUNNABLE;
+      }
+      release(&t->lock);
+    }
+  }
+
 
   // arguments to user main(argc, argv)
   // argc is returned via the system call return
